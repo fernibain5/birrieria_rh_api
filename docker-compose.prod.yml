@@ -1,0 +1,33 @@
+# VPS production — app + PostgreSQL.
+# Usage: docker compose -f docker-compose.prod.yml up -d
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-attendance_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No external port — only accessible to the app container
+
+  app:
+    build: .
+    restart: always
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-attendance_db}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET}
+      API_URL: ${API_URL}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  uploads_data:

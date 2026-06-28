@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Attendance (existing) ───────────────────────────────────────────────────
+
+model Restaurant {
+  id            Int              @id @default(autoincrement())
+  name          String
+  hikvisionIp   String
+  hikvisionUser String
+  hikvisionPass String
+  isActive      Boolean          @default(true)
+  employees     Employee[]
+  syncLogs      SyncLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  // HR relations
+  users         User[]
+  events        Event[]
+  minutas       Minuta[]
+}
+
+model Employee {
+  id           Int                @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id])
+  hikvisionId  String
+  name         String
+  department   String?
+  email        String?
+  isActive     Boolean            @default(true)
+  records      AttendanceRecord[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([restaurantId, hikvisionId])
+}
+
+model AttendanceRecord {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  checkedAt  DateTime
+  eventType  String   // "check-in" | "check-out"
+  deviceIp   String?
+  rawData    Json?
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, checkedAt])
+  @@index([checkedAt])
+  @@index([employeeId])
+}
+
+model SyncLog {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  startTime    DateTime
+  endTime      DateTime
+  recordCount  Int
+  status       String     // "success" | "error"
+  errorMsg     String?
+  createdAt    DateTime   @default(now())
+}
+
+// ─── HR (migrated from Firestore) ───────────────────────────────────────────
+
+// Firestore: roles/{value}  (doc ID is the role slug)
+model Role {
+  value    String  @id  // "admin" | "mesero" | "cocinero" | ...
+  label    String
+  color    String
+  isSystem Boolean @default(false)
+  users    User[]
+}
+
+// Firestore: users/{uid}  (doc ID is Firebase Auth UID)
+model User {
+  id           String      @id  // Firebase Auth UID
+  email        String      @unique
+  password     String?     // bcrypt hash; nullable so existing rows survive migration
+  displayName  String?
+  phoneNumber  String?
+  roleValue    String
+  role         Role        @relation(fields: [roleValue], references: [value])
+  restaurantId Int?        // Firestore "branch" ("San Pedro" | "Las Quintas") → Restaurant.id
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  allFiles     String[]
+  createdAt    DateTime    @default(now())
+
+  createdEvents     Event[]          @relation("EventCreatedBy")
+  createdMinutas    Minuta[]         @relation("MinutaCreatedBy")
+  minutaAttendances MinutaAttendee[]
+  createdResources  Resource[]
+}
+
+// Firestore: events/{id}
+model Event {
+  id                 String      @id @default(cuid())
+  title              String
+  description        String?
+  date               DateTime
+  color              String?
+  type               String      @default("custom") // "holiday" | "custom" | "minuta"
+  year               Int?
+  createdAt          DateTime    @default(now())
+  createdById        String?
+  createdBy          User?       @relation("EventCreatedBy", fields: [createdById], references: [id])
+  targetRole         String?
+  targetRestaurantId Int?        // Firestore "targetBranch" → Restaurant.id
+  targetRestaurant   Restaurant? @relation(fields: [targetRestaurantId], references: [id])
+  minutaId           String?     // set when type = "minuta"
+  minuta             Minuta?     @relation(fields: [minutaId], references: [id])
+
+  @@index([date])
+  @@index([year])
+  @@index([minutaId])
+}
+
+// Firestore: minutas/{id}
+model Minuta {
+  id              String           @id @default(cuid())
+  supervisor      String?
+  restaurantId    Int?             // Firestore "branch" → Restaurant.id
+  restaurant      Restaurant?      @relation(fields: [restaurantId], references: [id])
+  role            String?          // target role for this minuta
+  whatHappened    String?
+  expectations    String?
+  nextMeetingDate DateTime?
+  createdAt       DateTime         @default(now())
+  createdById     String
+  createdBy       User             @relation("MinutaCreatedBy", fields: [createdById], references: [id])
+  legacyEventId   String?          // Firestore "eventId" — kept for migration traceability
+  status          String           @default("pending") // "pending" | "completed"
+  responsibleUids String[]         // denormalized union of all area encargadoUids
+  generalInfo     Json?            // MinutaGeneralInfo — not queried into, stored as-is
+  areas           MinutaArea[]
+  attendees       MinutaAttendee[]
+  areaEvents      Event[]
+
+  @@index([restaurantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Firestore: minutas/{id}.areas[n]  (embedded array → own table)
+model MinutaArea {
+  id              Int      @id @default(autoincrement())
+  minutaId        String
+  minuta          Minuta   @relation(fields: [minutaId], references: [id], onDelete: Cascade)
+  index           Int      // original array position; used by completeMinutaArea(areaIndex)
+  area            String
+  planteamiento   String
+  seguimiento     String
+  fechaCompromiso String   // kept as date string ("YYYY-MM-DD") to match Firestore format
+  status          String   @default("pending") // "pending" | "completed"
+  encargadoName   String?
+  encargadoUids   String[] // supports multi-responsible
+  calendarEventId String?  // Event.id created for this area
+
+  @@unique([minutaId, index])
+  @@index([minutaId])
+}
+
+// Firestore: minutas/{id}.attendees[n]  (embedded array → own table)
+model MinutaAttendee {
+  id          Int     @id @default(autoincrement())
+  minutaId    String
+  minuta      Minuta  @relation(fields: [minutaId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?   @relation(fields: [userId], references: [id])
+  displayName String?
+  email       String?
+  area        String?
+
+  @@index([minutaId])
+}
+
+// Firestore: resources/{id}
+model Resource {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  fileUrl      String   // Firebase Storage public URL (kept during transition)
+  storagePath  String   @unique
+  contentType  String
+  size         Int
+  order        Int      @default(0)
+  adminOnly    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  createdById  String?
+  createdBy    User?    @relation(fields: [createdById], references: [id])
+}
