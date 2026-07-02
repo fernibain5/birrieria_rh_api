@@ -32,10 +32,12 @@ export class AttendanceCronService {
     try {
       const restaurants = await this.prisma.restaurant.findMany({
         where: { isActive: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, hikvisionIp: true },
       });
 
       for (const restaurant of restaurants) {
+        // No device configured (yet) — nothing to sync, don't log errors.
+        if (!restaurant.hikvisionIp) continue;
         // sync() already handles device/network failures internally (error
         // SyncLog row); this catch keeps one restaurant from blocking the rest.
         try {
