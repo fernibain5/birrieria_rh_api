@@ -23,6 +23,7 @@ services:
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET}
       API_URL: ${API_URL}
+      SYNC_CRON_ENABLED: ${SYNC_CRON_ENABLED:-true}
     volumes:
       - uploads_data:/app/uploads
     depends_on:

@@ -34,8 +34,10 @@ model Employee {
   name         String
   department   String?
   email        String?
+  passcode     String?            // PIN provisioned on the Hikvision device (ISAPI UserInfo password)
   isActive     Boolean            @default(true)
   records      AttendanceRecord[]
+  user         User?              // HR login account linked to this Hikvision employee, if any
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -87,10 +89,14 @@ model User {
   password     String?     // bcrypt hash; nullable so existing rows survive migration
   displayName  String?
   phoneNumber  String?
+  hireDate     DateTime?   @db.Date // fecha de ingreso; base for años de antigüedad
+  birthDate    DateTime?   @db.Date // fecha de cumpleaños
   roleValue    String
   role         Role        @relation(fields: [roleValue], references: [value])
   restaurantId Int?        // Firestore "branch" ("San Pedro" | "Las Quintas") → Restaurant.id
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  employeeId   Int?        @unique // links this login account to its Hikvision Employee record
+  employee     Employee?   @relation(fields: [employeeId], references: [id])
   allFiles     String[]
   createdAt    DateTime    @default(now())
 
@@ -98,6 +104,8 @@ model User {
   createdMinutas    Minuta[]         @relation("MinutaCreatedBy")
   minutaAttendances MinutaAttendee[]
   createdResources  Resource[]
+  documents         UserDocument[]   @relation("UserDocumentOwner")
+  uploadedDocuments UserDocument[]   @relation("UserDocumentUploader")
 }
 
 // Firestore: events/{id}
@@ -196,4 +204,22 @@ model Resource {
   createdAt    DateTime @default(now())
   createdById  String?
   createdBy    User?    @relation(fields: [createdById], references: [id])
+}
+
+// Documents/images uploaded to a specific user's profile (contracts, IDs, photos, etc.)
+model UserDocument {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  fileUrl      String
+  storagePath  String   @unique
+  contentType  String
+  size         Int
+  createdAt    DateTime @default(now())
+
+  userId       String
+  user         User     @relation("UserDocumentOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?    @relation("UserDocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
 }

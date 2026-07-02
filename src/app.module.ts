@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { EmployeesModule } from './employees/employees.module';
@@ -10,10 +11,12 @@ import { RolesModule } from './roles/roles.module';
 import { EventsModule } from './events/events.module';
 import { MinutasModule } from './minutas/minutas.module';
 import { ResourcesModule } from './resources/resources.module';
+import { UserDocumentsModule } from './user-documents/user-documents.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     RestaurantsModule,
     EmployeesModule,
@@ -24,6 +27,7 @@ import { ResourcesModule } from './resources/resources.module';
     EventsModule,
     MinutasModule,
     ResourcesModule,
+    UserDocumentsModule,
   ],
 })
 export class AppModule {}

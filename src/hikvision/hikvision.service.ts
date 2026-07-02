@@ -112,4 +112,51 @@ export class HikvisionService {
     this.logger.log(`Total events fetched: ${allEvents.length}`);
     return allEvents;
   }
+
+  /**
+   * Enroll (or overwrite) a person on the Hikvision access-control device via
+   * ISAPI so the device will actually accept card/fingerprint/PIN punches for
+   * them. Without this call the device never learns about the employee, even
+   * though we already track them in our own `Employee` table.
+   *
+   * Hikvision's UserInfo/Record requires a numeric `password` (the PIN the
+   * employee types at the keypad) — omitting it causes the device to reject
+   * the record.
+   */
+  async createPerson(
+    restaurant: Restaurant,
+    employeeNo: string,
+    name: string,
+    passcode: string,
+  ): Promise<void> {
+    const url = `http://${restaurant.hikvisionIp}/ISAPI/AccessControl/UserInfo/Record?format=json`;
+
+    this.logger.log(
+      `Provisioning employee ${employeeNo} on device ${restaurant.hikvisionIp}`,
+    );
+
+    await digestRequest({
+      method: 'PUT',
+      url,
+      timeout: 10_000,
+      username: restaurant.hikvisionUser,
+      password: restaurant.hikvisionPass,
+      data: {
+        UserInfo: {
+          employeeNo,
+          name,
+          userType: 'normal',
+          Valid: {
+            enable: true,
+            beginTime: '2020-01-01T00:00:00',
+            endTime: '2037-12-31T23:59:59',
+            timeType: 'local',
+          },
+          password: passcode,
+          doorRight: '1',
+          RightPlan: [{ doorNo: 1, planTemplateNo: '1' }],
+        },
+      },
+    });
+  }
 }

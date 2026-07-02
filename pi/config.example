@@ -1,0 +1,19 @@
+# Hikvision tunnel config — installed to /etc/hikvision-tunnel/config
+# Per-restaurant values; everything else is identical across Pis.
+
+# MAC address of the Hikvision device. Find it in the router's DHCP client
+# list or with: sudo arp-scan --interface=wlan0 --localnet
+DEVICE_MAC="a4:d5:c2:xx:xx:xx"
+
+# TCP port this Pi listens on. The VPS backend connects here via Tailscale,
+# so Restaurant.hikvisionIp must be "<pi-tailnet-ip>:<LISTEN_PORT>".
+LISTEN_PORT=8571
+
+# Port the Hikvision web/ISAPI service listens on (default 80).
+DEVICE_PORT=80
+
+# LAN interface to scan (Pi 3A+ is WiFi-only).
+LAN_IFACE=wlan0
+
+# Seconds between device-rediscovery scans.
+CHECK_INTERVAL=60

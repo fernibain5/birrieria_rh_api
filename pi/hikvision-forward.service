@@ -1,0 +1,15 @@
+[Unit]
+Description=Hikvision device discovery + TCP forward (Tailscale tunnel endpoint)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hikvision-forward.sh
+Restart=always
+RestartSec=10
+# root required: arp-scan uses raw sockets
+User=root
+
+[Install]
+WantedBy=multi-user.target
