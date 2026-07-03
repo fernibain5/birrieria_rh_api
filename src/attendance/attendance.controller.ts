@@ -29,9 +29,15 @@ export class AttendanceController {
   @Get('sync')
   async sync(
     @Param('restaurantId', ParseIntPipe) restaurantId: number,
-    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+    @Query('days') days?: string,
   ): Promise<SyncResultDto> {
-    return this.attendanceService.sync(restaurantId, days);
+    // Parsed by hand: ParseIntPipe({ optional: true }) still rejects the
+    // empty value this route receives in production when ?days is omitted.
+    const lookbackDays = Number(days);
+    return this.attendanceService.sync(
+      restaurantId,
+      Number.isFinite(lookbackDays) && days !== '' ? lookbackDays : undefined,
+    );
   }
 
   @Get('download')
