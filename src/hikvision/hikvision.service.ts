@@ -108,11 +108,14 @@ export class HikvisionService {
       }
 
       this.logger.log(
-        `Fetched page at position ${position}: ${batch.length} records`,
+        `Fetched page at position ${position}: ${batch.length} records | status: ${acsEvent?.responseStatusStrg}, totalMatches: ${acsEvent?.totalMatches}`,
       );
 
-      if (batch.length < maxResults) break;
-      position += maxResults;
+      // The device may clamp the page size below maxResults (like the person
+      // search does), so rely on its MORE/OK status and advance by the actual
+      // batch length instead of assuming a short page means the last one.
+      if (acsEvent?.responseStatusStrg !== 'MORE' || batch.length === 0) break;
+      position += batch.length;
     }
 
     this.logger.log(`Total events fetched: ${allEvents.length}`);
