@@ -63,23 +63,27 @@ export class AttendanceService {
   }
 
   async sync(restaurantId: number): Promise<SyncResultDto> {
-    const syncStart = new Date();
-    let recordCount = 0;
-
     // Fetch restaurant (with device credentials)
     const restaurant = await this.restaurantsService.findOneRaw(restaurantId);
 
-    // Determine sync window: from last successful sync or 30 days ago
-    const lastSync = await this.prisma.syncLog.findFirst({
-      where: { restaurantId, status: 'success' },
-      orderBy: { endTime: 'desc' },
-    });
+    if (!restaurant.hikvisionIp) {
+      return {
+        restaurantId,
+        status: 'error',
+        recordsSynced: 0,
+        errorMessage: 'Dispositivo no configurado para esta sucursal',
+        syncedAt: new Date(),
+      };
+    }
 
-    const syncFrom = lastSync
-      ? lastSync.endTime
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
+    // Fixed 30-day lookback: re-fetching already-synced events is safe and
+    // cheap (bulk createMany + skipDuplicates below), and it self-heals gaps —
+    // e.g. events skipped while their employee wasn't imported yet.
+    const syncFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const syncTo = new Date();
+
+    let employeesImported = 0;
+    let importError: string | undefined;
 
     try {
       this.logger.log(
@@ -89,7 +93,8 @@ export class AttendanceService {
       // Import persons enrolled directly on the device screen so their punches
       // match an Employee row below. Create-only (skipDuplicates): names and
       // departments edited in the app are never overwritten. A failure here
-      // must not block event syncing for already-known employees.
+      // must not block event syncing for already-known employees, but it is
+      // surfaced in the response so the UI can show it.
       try {
         const persons = await this.hikvisionService.fetchPersons(restaurant);
         if (persons.length > 0) {
@@ -101,19 +106,17 @@ export class AttendanceService {
             })),
             skipDuplicates: true,
           });
+          employeesImported = created.count;
           if (created.count > 0) {
             this.logger.log(
               `Imported ${created.count} new employee(s) from device for restaurant #${restaurantId}`,
             );
           }
         }
-      } catch (importError) {
-        this.logger.warn(
-          `Person import failed for restaurant #${restaurantId}: ${
-            importError instanceof Error
-              ? importError.message
-              : String(importError)
-          } — continuing with event sync`,
+      } catch (error) {
+        importError = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Person import failed for restaurant #${restaurantId}: ${importError} — continuing with event sync`,
         );
       }
 
@@ -123,43 +126,53 @@ export class AttendanceService {
         syncTo,
       );
 
-      // For each event: find matching employee and upsert the attendance record
-      for (const event of events) {
-        const employee = await this.prisma.employee.findUnique({
-          where: {
-            restaurantId_hikvisionId: {
-              restaurantId,
-              hikvisionId: event.hikvisionId,
-            },
-          },
-        });
+      const employees = await this.prisma.employee.findMany({
+        where: { restaurantId },
+        select: { id: true, hikvisionId: true },
+      });
+      const employeeIdByHikvisionId = new Map(
+        employees.map((e) => [e.hikvisionId, e.id]),
+      );
 
-        if (!employee) {
-          this.logger.warn(
-            `No employee found for hikvisionId="${event.hikvisionId}" in restaurant #${restaurantId} — skipping`,
-          );
+      const unmatchedIds = new Set<string>();
+      const recordsToCreate: {
+        employeeId: number;
+        checkedAt: Date;
+        eventType: string;
+        deviceIp: string;
+        rawData: object;
+      }[] = [];
+
+      for (const event of events) {
+        const employeeId = employeeIdByHikvisionId.get(event.hikvisionId);
+        if (employeeId === undefined) {
+          unmatchedIds.add(event.hikvisionId);
           continue;
         }
-
-        await this.prisma.attendanceRecord.upsert({
-          where: {
-            employeeId_checkedAt: {
-              employeeId: employee.id,
-              checkedAt: event.checkedAt,
-            },
-          },
-          update: {}, // Already exists — nothing to update
-          create: {
-            employeeId: employee.id,
-            checkedAt: event.checkedAt,
-            eventType: event.eventType,
-            deviceIp: event.deviceIp,
-            rawData: event.rawData as object,
-          },
+        recordsToCreate.push({
+          employeeId,
+          checkedAt: event.checkedAt,
+          eventType: event.eventType,
+          deviceIp: event.deviceIp,
+          rawData: event.rawData as object,
         });
-
-        recordCount++;
       }
+
+      if (unmatchedIds.size > 0) {
+        this.logger.warn(
+          `${events.length - recordsToCreate.length} event(s) skipped for restaurant #${restaurantId} — no employee for hikvisionId(s): ${[...unmatchedIds].join(', ')}`,
+        );
+      }
+
+      const created =
+        recordsToCreate.length > 0
+          ? await this.prisma.attendanceRecord.createMany({
+              data: recordsToCreate,
+              skipDuplicates: true,
+            })
+          : { count: 0 };
+      const recordCount = created.count;
+      const eventsSkipped = events.length - recordsToCreate.length;
 
       // Log success
       await this.prisma.syncLog.create({
@@ -173,13 +186,16 @@ export class AttendanceService {
       });
 
       this.logger.log(
-        `Sync completed for restaurant #${restaurantId}: ${recordCount} records`,
+        `Sync completed for restaurant #${restaurantId}: ${recordCount} new record(s), ${employeesImported} employee(s) imported, ${eventsSkipped} event(s) skipped`,
       );
 
       return {
         restaurantId,
         status: 'success',
         recordsSynced: recordCount,
+        employeesImported,
+        eventsSkipped,
+        importError,
         syncedAt: syncTo,
       };
     } catch (error) {

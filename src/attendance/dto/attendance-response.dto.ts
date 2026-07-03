@@ -38,6 +38,9 @@ export class SyncResultDto {
   restaurantId: number;
   status: 'success' | 'error';
   recordsSynced: number;
+  employeesImported?: number;
+  eventsSkipped?: number;
+  importError?: string;
   errorMessage?: string;
   syncedAt: Date;
 }
