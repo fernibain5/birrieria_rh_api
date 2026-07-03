@@ -30,3 +30,26 @@ export interface HikvisionAcsEventResponse {
 export interface HikvisionApiResponse {
   AcsEvent: HikvisionAcsEventResponse;
 }
+
+/**
+ * A person record returned by /ISAPI/AccessControl/UserInfo/Search.
+ * Field names match the raw JSON from the device.
+ */
+export interface HikvisionRawPerson {
+  /** Employee ID as configured in the Hikvision device (matches Employee.hikvisionId) */
+  employeeNo: string;
+  name?: string;
+}
+
+export interface HikvisionUserInfoSearchResponse {
+  /** Absent when the device has no persons matching the search */
+  UserInfo?: HikvisionRawPerson[];
+  numOfMatches?: number;
+  totalMatches?: number;
+  /** "MORE" when further pages remain, "OK" on the last page, "NO MATCH" when empty */
+  responseStatusStrg: string;
+}
+
+export interface HikvisionUserInfoApiResponse {
+  UserInfoSearch: HikvisionUserInfoSearchResponse;
+}

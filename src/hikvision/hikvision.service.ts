@@ -4,6 +4,7 @@ import { digestRequest } from './digest-auth.util';
 import {
   HikvisionRawEvent,
   HikvisionApiResponse,
+  HikvisionUserInfoApiResponse,
 } from './dto/hikvision-event.dto';
 
 /** Hikvision minor event codes → attendance event type mapping.
@@ -20,6 +21,11 @@ const EVENT_TYPE_MAP: Record<number, 'check-in' | 'check-out'> = {
   76: 'check-out',  // Normal card/fingerprint — exit
   38: 'check-out',  // Observed on DS-K device at exit (needs confirmation per install)
 };
+
+export interface DevicePerson {
+  hikvisionId: string;
+  name: string;
+}
 
 export interface ParsedAttendanceEvent {
   hikvisionId: string;
@@ -111,6 +117,58 @@ export class HikvisionService {
 
     this.logger.log(`Total events fetched: ${allEvents.length}`);
     return allEvents;
+  }
+
+  /**
+   * Fetch the full person list from the Hikvision device. Used by the sync to
+   * auto-create Employee rows for people enrolled directly on the device
+   * screen (whose punches would otherwise be skipped as "no employee found").
+   */
+  async fetchPersons(restaurant: Restaurant): Promise<DevicePerson[]> {
+    const url = `http://${restaurant.hikvisionIp}/ISAPI/AccessControl/UserInfo/Search?format=json`;
+
+    const persons: DevicePerson[] = [];
+    let position = 0;
+    // The device clamps the page size (typically to 30) regardless of what we
+    // ask for, so pagination advances by the actual batch length.
+    const maxResults = 100;
+
+    while (true) {
+      const response = await digestRequest({
+        method: 'POST',
+        url,
+        timeout: 10_000,
+        username: restaurant.hikvisionUser,
+        password: restaurant.hikvisionPass,
+        data: {
+          UserInfoSearchCond: {
+            searchID: String(Date.now()),
+            searchResultPosition: position,
+            maxResults,
+          },
+        },
+      });
+
+      const body = response.data as HikvisionUserInfoApiResponse;
+      const search = body?.UserInfoSearch;
+      const batch = search?.UserInfo ?? [];
+
+      for (const raw of batch) {
+        if (!raw.employeeNo) continue;
+        persons.push({
+          hikvisionId: String(raw.employeeNo),
+          name: raw.name?.trim() || `Empleado ${raw.employeeNo}`,
+        });
+      }
+
+      if (search?.responseStatusStrg !== 'MORE' || batch.length === 0) break;
+      position += batch.length;
+    }
+
+    this.logger.log(
+      `Total persons on device ${restaurant.hikvisionIp}: ${persons.length}`,
+    );
+    return persons;
   }
 
   /**

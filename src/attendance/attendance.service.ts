@@ -86,6 +86,37 @@ export class AttendanceService {
         `Starting sync for restaurant #${restaurantId} | from: ${syncFrom.toISOString()}`,
       );
 
+      // Import persons enrolled directly on the device screen so their punches
+      // match an Employee row below. Create-only (skipDuplicates): names and
+      // departments edited in the app are never overwritten. A failure here
+      // must not block event syncing for already-known employees.
+      try {
+        const persons = await this.hikvisionService.fetchPersons(restaurant);
+        if (persons.length > 0) {
+          const created = await this.prisma.employee.createMany({
+            data: persons.map((p) => ({
+              restaurantId,
+              hikvisionId: p.hikvisionId,
+              name: p.name,
+            })),
+            skipDuplicates: true,
+          });
+          if (created.count > 0) {
+            this.logger.log(
+              `Imported ${created.count} new employee(s) from device for restaurant #${restaurantId}`,
+            );
+          }
+        }
+      } catch (importError) {
+        this.logger.warn(
+          `Person import failed for restaurant #${restaurantId}: ${
+            importError instanceof Error
+              ? importError.message
+              : String(importError)
+          } — continuing with event sync`,
+        );
+      }
+
       const events = await this.hikvisionService.fetchEvents(
         restaurant,
         syncFrom,
