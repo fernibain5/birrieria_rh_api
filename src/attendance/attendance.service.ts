@@ -62,7 +62,7 @@ export class AttendanceService {
     };
   }
 
-  async sync(restaurantId: number): Promise<SyncResultDto> {
+  async sync(restaurantId: number, lookbackDays = 30): Promise<SyncResultDto> {
     // Fetch restaurant (with device credentials)
     const restaurant = await this.restaurantsService.findOneRaw(restaurantId);
 
@@ -76,10 +76,12 @@ export class AttendanceService {
       };
     }
 
-    // Fixed 30-day lookback: re-fetching already-synced events is safe and
-    // cheap (bulk createMany + skipDuplicates below), and it self-heals gaps —
-    // e.g. events skipped while their employee wasn't imported yet.
-    const syncFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Fixed lookback (default 30 days): re-fetching already-synced events is
+    // safe and cheap (bulk createMany + skipDuplicates below), and it
+    // self-heals gaps — e.g. events skipped while their employee wasn't
+    // imported yet. Larger values (?days=) allow one-time historical backfills.
+    const days = Math.min(Math.max(lookbackDays, 1), 3650);
+    const syncFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const syncTo = new Date();
 
     let employeesImported = 0;

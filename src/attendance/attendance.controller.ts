@@ -29,8 +29,9 @@ export class AttendanceController {
   @Get('sync')
   async sync(
     @Param('restaurantId', ParseIntPipe) restaurantId: number,
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
   ): Promise<SyncResultDto> {
-    return this.attendanceService.sync(restaurantId);
+    return this.attendanceService.sync(restaurantId, days);
   }
 
   @Get('download')
