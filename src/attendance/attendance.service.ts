@@ -8,10 +8,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { HikvisionService } from '../hikvision/hikvision.service';
 import { QueryAttendanceDto } from './dto/query-attendance.dto';
+import { CreateJustifiedAbsenceDto } from './dto/create-justified-absence.dto';
+import { QueryJustifiedAbsenceDto } from './dto/query-justified-absence.dto';
 import {
   AttendanceRecordDto,
   PaginatedAttendanceDto,
   SyncResultDto,
+  JustifiedAbsenceDto,
 } from './dto/attendance-response.dto';
 
 @Injectable()
@@ -268,5 +271,56 @@ export class AttendanceService {
     });
 
     return header + rows.join('\n');
+  }
+
+  async justifyAbsence(
+    restaurantId: number,
+    dto: CreateJustifiedAbsenceDto,
+  ): Promise<JustifiedAbsenceDto> {
+    await this.findEmployeeOrThrow(restaurantId, dto.employeeId);
+
+    const record = await this.prisma.justifiedAbsence.upsert({
+      where: { employeeId_date: { employeeId: dto.employeeId, date: dto.date } },
+      create: {
+        employeeId: dto.employeeId,
+        date: dto.date,
+        justifiedById: dto.justifiedById,
+      },
+      update: {}, // one-way: re-confirming an already-justified day is a no-op, not an error
+    });
+    return JustifiedAbsenceDto.from(record);
+  }
+
+  async findJustified(
+    restaurantId: number,
+    query: QueryJustifiedAbsenceDto,
+  ): Promise<JustifiedAbsenceDto[]> {
+    const { startDate, endDate, employeeId } = query;
+    const records = await this.prisma.justifiedAbsence.findMany({
+      where: {
+        employee: { restaurantId },
+        ...(startDate && { date: { gte: startDate } }),
+        ...(endDate && {
+          date: {
+            ...(startDate ? { gte: startDate } : {}),
+            lte: endDate,
+          },
+        }),
+        ...(employeeId && { employeeId }),
+      },
+    });
+    return records.map(JustifiedAbsenceDto.from);
+  }
+
+  private async findEmployeeOrThrow(restaurantId: number, employeeId: number) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, restaurantId },
+    });
+    if (!employee) {
+      throw new NotFoundException(
+        `Employee #${employeeId} not found in restaurant #${restaurantId}`,
+      );
+    }
+    return employee;
   }
 }

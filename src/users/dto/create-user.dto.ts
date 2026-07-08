@@ -1,4 +1,14 @@
-import { IsEmail, IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsEmail, IsString, IsOptional, IsDateString, IsIn } from 'class-validator';
+
+export const DIAS_DESCANSO = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+] as const;
 
 export class CreateUserDto {
   @IsEmail()
@@ -27,4 +37,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsDateString()
   birthDate?: string;
+
+  @IsString()
+  @IsIn(DIAS_DESCANSO)
+  restDay: string;
 }

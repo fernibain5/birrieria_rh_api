@@ -1,4 +1,4 @@
-import { AttendanceRecord, Employee } from '@prisma/client';
+import { AttendanceRecord, Employee, JustifiedAbsence } from '@prisma/client';
 
 type RecordWithEmployee = AttendanceRecord & { employee: Employee };
 
@@ -43,4 +43,22 @@ export class SyncResultDto {
   importError?: string;
   errorMessage?: string;
   syncedAt: Date;
+}
+
+export class JustifiedAbsenceDto {
+  id: number;
+  employeeId: number;
+  date: string;
+  justifiedById: string | null;
+  createdAt: Date;
+
+  static from(record: JustifiedAbsence): JustifiedAbsenceDto {
+    const dto = new JustifiedAbsenceDto();
+    dto.id = record.id;
+    dto.employeeId = record.employeeId;
+    dto.date = record.date;
+    dto.justifiedById = record.justifiedById;
+    dto.createdAt = record.createdAt;
+    return dto;
+  }
 }

@@ -12,6 +12,7 @@ import { EventsModule } from './events/events.module';
 import { MinutasModule } from './minutas/minutas.module';
 import { ResourcesModule } from './resources/resources.module';
 import { UserDocumentsModule } from './user-documents/user-documents.module';
+import { VacationsModule } from './vacations/vacations.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { UserDocumentsModule } from './user-documents/user-documents.module';
     MinutasModule,
     ResourcesModule,
     UserDocumentsModule,
+    VacationsModule,
   ],
 })
 export class AppModule {}

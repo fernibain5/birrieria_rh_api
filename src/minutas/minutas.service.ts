@@ -1,4 +1,5 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { RequestUser } from '../auth/request-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMinutaDto } from './dto/create-minuta.dto';
 
@@ -68,10 +69,16 @@ export class MinutasService {
     return Array.from(uids);
   }
 
-  async findAll(role?: string, branch?: string) {
+  async findAll(role: string | undefined, branch: string | undefined, requestUser: RequestUser) {
     const where: any = {};
     if (role) where.role = role;
-    if (branch) where.restaurantId = await this.branchToId(branch);
+    if (requestUser.role === 'admin') {
+      if (branch) where.restaurantId = await this.branchToId(branch);
+    } else {
+      // Non-admin callers can't widen scope via the branch query param —
+      // always force their own restaurant.
+      where.restaurantId = requestUser.restaurantId;
+    }
 
     const minutas = await this.prisma.minuta.findMany({
       where,
@@ -85,8 +92,11 @@ export class MinutasService {
     return minutas.map((m) => this.toMinuta(m));
   }
 
-  async create(dto: CreateMinutaDto): Promise<{ id: string }> {
-    const restaurantId = await this.branchToId(dto.branch);
+  async create(dto: CreateMinutaDto, requestUser: RequestUser): Promise<{ id: string }> {
+    const restaurantId =
+      requestUser.role === 'admin'
+        ? await this.branchToId(dto.branch)
+        : requestUser.restaurantId;
     const areas = (dto.areas ?? []) as Record<string, unknown>[];
     const attendees = (dto.attendees ?? []) as Record<string, unknown>[];
     const responsibleUids = dto.responsibleUids?.length

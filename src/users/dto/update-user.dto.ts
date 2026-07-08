@@ -3,9 +3,11 @@ import {
   IsOptional,
   IsDateString,
   IsInt,
+  IsIn,
   ValidateIf,
   MinLength,
 } from 'class-validator';
+import { DIAS_DESCANSO } from './create-user.dto';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -36,6 +38,11 @@ export class UpdateUserDto {
   @IsOptional()
   @IsDateString()
   birthDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(DIAS_DESCANSO)
+  restDay?: string;
 
   // Links this login account to a Hikvision Employee record; pass null to unlink.
   @IsOptional()

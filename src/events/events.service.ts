@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { RequestUser } from '../auth/request-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -30,8 +31,16 @@ export class EventsService {
     };
   }
 
-  async findAll(year?: number) {
-    const where = year ? { year } : {};
+  async findAll(year: number | undefined, requestUser: RequestUser) {
+    const where: any = year ? { year } : {};
+    if (requestUser.role !== 'admin') {
+      where.OR = [
+        { targetRestaurantId: null },
+        ...(requestUser.restaurantId != null
+          ? [{ targetRestaurantId: requestUser.restaurantId }]
+          : []),
+      ];
+    }
     const events = await this.prisma.event.findMany({
       where,
       include: { targetRestaurant: true },

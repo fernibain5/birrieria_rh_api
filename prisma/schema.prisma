@@ -36,10 +36,12 @@ model Employee {
   email        String?
   passcode     String?            // PIN provisioned on the Hikvision device (ISAPI UserInfo password)
   isActive     Boolean            @default(true)
-  records      AttendanceRecord[]
-  user         User?              // HR login account linked to this Hikvision employee, if any
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  sortOrder          Int                @default(0) // admin-defined display order, shared across all Incidencias reports
+  records            AttendanceRecord[]
+  justifiedAbsences  JustifiedAbsence[]
+  user               User?              // HR login account linked to this Hikvision employee, if any
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@unique([restaurantId, hikvisionId])
 }
@@ -57,6 +59,45 @@ model AttendanceRecord {
   @@unique([employeeId, checkedAt])
   @@index([checkedAt])
   @@index([employeeId])
+}
+
+// A "falta injustificada" (no AttendanceRecord that day) manually excused by
+// an admin. date is a plain "YYYY-MM-DD" string — NOT DateTime/@db.Date — to
+// match the frontend's localDateKey() local-calendar-day semantics without a
+// UTC round-trip off-by-one-day risk. See MinutaArea.fechaCompromiso for the
+// same precedent in this schema.
+model JustifiedAbsence {
+  id            Int      @id @default(autoincrement())
+  employeeId    Int
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  date          String   // "YYYY-MM-DD"
+  justifiedById String?  // Firebase Auth UID of the admin who justified it; unverified, no FK
+  createdAt     DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+}
+
+// An approved vacation period for a User (not an Employee — vacation
+// entitlement belongs to the person's employment record, independent of
+// whether their Hikvision link ever changes). Dates are plain "YYYY-MM-DD"
+// strings, same precedent as JustifiedAbsence.date. businessDays is computed
+// server-side at creation (excludes the employee's restDay + holidays) and
+// never recomputed — rows are permanent history, never deleted or reset;
+// each year's allowance is derived by windowing over this history, not by
+// clearing it.
+model VacationRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  startDate    String   // "YYYY-MM-DD"
+  endDate      String   // "YYYY-MM-DD"
+  businessDays Int
+  approvedById String?  // unverified UID of the admin who approved it; no FK
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
 }
 
 model SyncLog {
@@ -91,6 +132,7 @@ model User {
   phoneNumber  String?
   hireDate     DateTime?   @db.Date // fecha de ingreso; base for años de antigüedad
   birthDate    DateTime?   @db.Date // fecha de cumpleaños
+  restDay      String      // día de descanso — "Lunes".."Domingo"
   roleValue    String
   role         Role        @relation(fields: [roleValue], references: [value])
   restaurantId Int?        // Firestore "branch" ("San Pedro" | "Las Quintas") → Restaurant.id
@@ -100,12 +142,13 @@ model User {
   allFiles     String[]
   createdAt    DateTime    @default(now())
 
-  createdEvents     Event[]          @relation("EventCreatedBy")
-  createdMinutas    Minuta[]         @relation("MinutaCreatedBy")
+  createdEvents     Event[]           @relation("EventCreatedBy")
+  createdMinutas    Minuta[]          @relation("MinutaCreatedBy")
   minutaAttendances MinutaAttendee[]
   createdResources  Resource[]
-  documents         UserDocument[]   @relation("UserDocumentOwner")
-  uploadedDocuments UserDocument[]   @relation("UserDocumentUploader")
+  documents         UserDocument[]    @relation("UserDocumentOwner")
+  uploadedDocuments UserDocument[]    @relation("UserDocumentUploader")
+  vacationRequests  VacationRequest[]
 }
 
 // Firestore: events/{id}

@@ -26,7 +26,8 @@ export class EmployeesService {
   async findAll(restaurantId: number): Promise<EmployeeResponseDto[]> {
     const employees = await this.prisma.employee.findMany({
       where: { restaurantId, isActive: true },
-      orderBy: { name: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: { user: { select: { id: true, displayName: true, restDay: true, hireDate: true } } },
     });
     return employees.map((employee) => EmployeeResponseDto.from(employee));
   }
@@ -62,6 +63,15 @@ export class EmployeesService {
       );
     }
 
+    // New employees append to the end of the admin-defined order rather than
+    // defaulting to 0, which would otherwise jump them to the front of every
+    // report once any reordering has happened.
+    const { _max } = await this.prisma.employee.aggregate({
+      where: { restaurantId },
+      _max: { sortOrder: true },
+    });
+    const nextSortOrder = (_max.sortOrder ?? -1) + 1;
+
     try {
       const employee = await this.prisma.employee.create({
         data: {
@@ -71,6 +81,7 @@ export class EmployeesService {
           department: dto.department,
           email: dto.email,
           passcode,
+          sortOrder: nextSortOrder,
         },
       });
       // Only the creation response carries the passcode — the admin needs it
@@ -116,6 +127,22 @@ export class EmployeesService {
       data: { isActive: false },
     });
     return EmployeeResponseDto.from(employee);
+  }
+
+  /**
+   * `updateMany` (not `update`) so an id that doesn't belong to this
+   * restaurant is silently skipped rather than throwing — same permissive
+   * scoping the resources module's reorder uses.
+   */
+  async reorder(restaurantId: number, ids: number[]): Promise<void> {
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.employee.updateMany({
+          where: { id, restaurantId },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
   }
 
   private async findOneOrThrow(restaurantId: number, employeeId: number) {

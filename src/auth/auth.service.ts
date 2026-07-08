@@ -2,12 +2,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly usersService: UsersService,
   ) {}
 
   async login(email: string, password: string) {
@@ -17,7 +19,6 @@ export class AuthService {
         id: true,
         email: true,
         password: true,
-        displayName: true,
         roleValue: true,
         restaurantId: true,
       },
@@ -39,15 +40,13 @@ export class AuthService {
       restaurantId: user.restaurantId,
     };
 
+    // Reuse UsersService.findById so the login response has the exact same
+    // shape (uid/branch/...) as the session-restore GET /users/me endpoint.
+    const profile = await this.usersService.findById(user.id);
+
     return {
       access_token: this.jwt.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.roleValue,
-        restaurantId: user.restaurantId,
-      },
+      user: profile,
     };
   }
 }

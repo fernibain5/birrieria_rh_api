@@ -11,24 +11,29 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RequestUser } from '../auth/request-user';
 import { CreateMinutaDto } from './dto/create-minuta.dto';
 import { MinutasService } from './minutas.service';
 
+@UseGuards(JwtAuthGuard)
 @Controller('minutas')
 export class MinutasController {
   constructor(private readonly minutasService: MinutasService) {}
 
   @Get()
-  findAll(@Query('role') role?: string, @Query('branch') branch?: string) {
-    return this.minutasService.findAll(role, branch);
+  findAll(
+    @Query('role') role: string | undefined,
+    @Query('branch') branch: string | undefined,
+    @Request() req: { user: RequestUser },
+  ) {
+    return this.minutasService.findAll(role, branch, req.user);
   }
 
   @Post()
-  create(@Body() dto: CreateMinutaDto) {
-    return this.minutasService.create(dto);
+  create(@Body() dto: CreateMinutaDto, @Request() req: { user: RequestUser }) {
+    return this.minutasService.create(dto, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id/areas/:index/complete')
   completeArea(
     @Param('id') id: string,
