@@ -65,11 +65,15 @@ export class AttendanceService {
     };
   }
 
-  async sync(restaurantId: number, lookbackDays = 30): Promise<SyncResultDto> {
+  async sync(
+    restaurantId: number,
+    lookbackDays = 30,
+    deviceIpOverride?: string,
+  ): Promise<SyncResultDto> {
     // Fetch restaurant (with device credentials)
-    const restaurant = await this.restaurantsService.findOneRaw(restaurantId);
+    const stored = await this.restaurantsService.findOneRaw(restaurantId);
 
-    if (!restaurant.hikvisionIp) {
+    if (!stored.hikvisionIp && !deviceIpOverride) {
       return {
         restaurantId,
         status: 'error',
@@ -77,6 +81,17 @@ export class AttendanceService {
         errorMessage: 'Dispositivo no configurado para esta sucursal',
         syncedAt: new Date(),
       };
+    }
+
+    // Manual sync: reach the device at a caller-supplied address (e.g. an
+    // on-site laptop tunnel) while keeping the stored device credentials.
+    const restaurant = deviceIpOverride
+      ? { ...stored, hikvisionIp: deviceIpOverride }
+      : stored;
+    if (deviceIpOverride) {
+      this.logger.log(
+        `Manual sync for restaurant #${restaurantId} via override address ${deviceIpOverride}`,
+      );
     }
 
     // Fixed lookback (default 30 days): re-fetching already-synced events is

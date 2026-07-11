@@ -112,6 +112,26 @@ Auto-sync runs every 10 minutes when `SYNC_CRON_ENABLED=true` is set in the
 VPS `.env` (see `docker-compose.prod.yml`); the manual "Sincronizar" button
 keeps working as a force-refresh.
 
+## Manual sync — temporary laptop tunnel
+
+When the Pi is offline (typical after the restaurant changes internet provider:
+the Pi loses the WiFi and with it Tailscale), any laptop with Tailscale on the
+restaurant's WiFi can stand in for it:
+
+```bash
+sudo tailscale up                 # once, if not already connected
+sudo ./manual-tunnel.sh           # discovers the device by MAC (arp-scan)
+# or, if discovery fails / different device:
+sudo ./manual-tunnel.sh 192.168.1.131
+```
+
+Prerequisites on the laptop: `tailscale`, `socat`, and `arp-scan` (only for
+auto-discovery). The script prints the address to type in the web app under
+**Incidencias → Sincronizar Manual** (`<laptop-tailnet-ip>:8571`). That
+address is stable across provider changes — only the device's LAN IP moves,
+and discovery handles that — so the web app remembers it after the first use.
+Keep the terminal open while syncing; Ctrl+C stops the tunnel.
+
 ## Adding a second restaurant
 
 Repeat with a new Pi: different hostname, that restaurant's WiFi, its device's

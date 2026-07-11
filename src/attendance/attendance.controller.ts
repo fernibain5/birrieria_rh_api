@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -42,13 +43,20 @@ export class AttendanceController {
   async sync(
     @Param('restaurantId', ParseIntPipe) restaurantId: number,
     @Query('days') days?: string,
+    @Query('deviceIp') deviceIp?: string,
   ): Promise<SyncResultDto> {
     // Parsed by hand: ParseIntPipe({ optional: true }) still rejects the
     // empty value this route receives in production when ?days is omitted.
     const lookbackDays = Number(days);
+    if (deviceIp && !/^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(deviceIp)) {
+      throw new BadRequestException(
+        'deviceIp debe tener el formato host o host:puerto',
+      );
+    }
     return this.attendanceService.sync(
       restaurantId,
       Number.isFinite(lookbackDays) && days !== '' ? lookbackDays : undefined,
+      deviceIp || undefined,
     );
   }
 
