@@ -10,7 +10,7 @@ import { CreateVacationRequestDto } from './dto/create-vacation-request.dto';
 import { QueryVacationRequestDto } from './dto/query-vacation-request.dto';
 import { VacationRequestDto } from './dto/vacation-request-response.dto';
 
-/** Indexed by Date#getUTCDay() (0 = Sunday .. 6 = Saturday) — matches User.restDay's Spanish names. */
+/** Indexed by Date#getUTCDay() (0 = Sunday .. 6 = Saturday) — matches User.restDays' Spanish names. */
 const DIA_BY_JS_DAY = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 @Injectable()
@@ -61,12 +61,12 @@ export class VacationsService {
 
   /**
    * Business days in [startDate, endDate] (inclusive, "YYYY-MM-DD" strings):
-   * excludes the employee's specific restDay (this restaurant runs 6 days/week
+   * excludes the employee's specific restDays (this restaurant runs 6 days/week
    * per employee, not a generic Sat/Sun weekend) and any applicable holiday
    * Event. Server-authoritative — never trust a client-supplied day count.
    */
   private async countBusinessDays(
-    user: { restDay: string; restaurantId: number | null },
+    user: { restDays: string[]; restaurantId: number | null },
     startDate: string,
     endDate: string,
   ): Promise<number> {
@@ -89,7 +89,7 @@ export class VacationsService {
     let count = 0;
     for (const d = new Date(start); d.getTime() <= end.getTime(); d.setUTCDate(d.getUTCDate() + 1)) {
       const dateKey = d.toISOString().slice(0, 10);
-      if (DIA_BY_JS_DAY[d.getUTCDay()] === user.restDay) continue;
+      if (user.restDays.includes(DIA_BY_JS_DAY[d.getUTCDay()])) continue;
       if (holidaySet.has(dateKey)) continue;
       count++;
     }

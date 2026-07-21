@@ -22,7 +22,7 @@ export class UsersService {
       phoneNumber: user.phoneNumber ?? undefined,
       hireDate: user.hireDate ? user.hireDate.toISOString().slice(0, 10) : undefined,
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : undefined,
-      restDay: user.restDay,
+      restDays: user.restDays,
       allFiles: user.allFiles ?? [],
       employeeId: user.employeeId ?? undefined,
       employee: user.employee
@@ -108,7 +108,7 @@ export class UsersService {
         phoneNumber: dto.phoneNumber ?? null,
         hireDate: this.toDateOnly(dto.hireDate),
         birthDate: this.toDateOnly(dto.birthDate),
-        restDay: dto.restDay,
+        restDays: dto.restDays,
         allFiles: [],
       },
       include: { restaurant: true, employee: true },
@@ -137,7 +137,7 @@ export class UsersService {
     if (dto.phoneNumber !== undefined) data.phoneNumber = dto.phoneNumber;
     if (dto.hireDate !== undefined) data.hireDate = this.toDateOnly(dto.hireDate);
     if (dto.birthDate !== undefined) data.birthDate = this.toDateOnly(dto.birthDate);
-    if (dto.restDay !== undefined) data.restDay = dto.restDay;
+    if (dto.restDays !== undefined) data.restDays = dto.restDays;
     if (dto.branch !== undefined) {
       data.restaurantId =
         requestUser.role === 'admin'

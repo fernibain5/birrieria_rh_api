@@ -83,7 +83,7 @@ model JustifiedAbsence {
 // entitlement belongs to the person's employment record, independent of
 // whether their Hikvision link ever changes). Dates are plain "YYYY-MM-DD"
 // strings, same precedent as JustifiedAbsence.date. businessDays is computed
-// server-side at creation (excludes the employee's restDay + holidays) and
+// server-side at creation (excludes the employee's restDays + holidays) and
 // never recomputed — rows are permanent history, never deleted or reset;
 // each year's allowance is derived by windowing over this history, not by
 // clearing it.
@@ -132,7 +132,7 @@ model User {
   phoneNumber  String?
   hireDate     DateTime?   @db.Date // fecha de ingreso; base for años de antigüedad
   birthDate    DateTime?   @db.Date // fecha de cumpleaños
-  restDay      String      // día de descanso — "Lunes".."Domingo"
+  restDays     String[]    @default([]) // días de descanso — subset of "Lunes".."Domingo"
   roleValue    String
   role         Role        @relation(fields: [roleValue], references: [value])
   restaurantId Int?        // Firestore "branch" ("San Pedro" | "Las Quintas") → Restaurant.id

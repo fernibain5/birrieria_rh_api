@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, IsDateString, IsIn } from 'class-validator';
+import { IsEmail, IsString, IsOptional, IsDateString, IsIn, IsArray, ArrayMinSize } from 'class-validator';
 
 export const DIAS_DESCANSO = [
   'Lunes',
@@ -38,7 +38,8 @@ export class CreateUserDto {
   @IsDateString()
   birthDate?: string;
 
-  @IsString()
-  @IsIn(DIAS_DESCANSO)
-  restDay: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsIn(DIAS_DESCANSO, { each: true })
+  restDays: string[];
 }

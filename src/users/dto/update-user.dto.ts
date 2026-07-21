@@ -4,6 +4,8 @@ import {
   IsDateString,
   IsInt,
   IsIn,
+  IsArray,
+  ArrayMinSize,
   ValidateIf,
   MinLength,
 } from 'class-validator';
@@ -40,9 +42,10 @@ export class UpdateUserDto {
   birthDate?: string;
 
   @IsOptional()
-  @IsString()
-  @IsIn(DIAS_DESCANSO)
-  restDay?: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsIn(DIAS_DESCANSO, { each: true })
+  restDays?: string[];
 
   // Links this login account to a Hikvision Employee record; pass null to unlink.
   @IsOptional()
