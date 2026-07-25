@@ -265,6 +265,15 @@ model OrgChart {
   createdBy    User?    @relation(fields: [createdById], references: [id])
 }
 
+// Global ordering of the sidebar nav items, keyed by each item's stable route `path`.
+// Singleton row (id always 1).
+model NavOrder {
+  id          Int      @id @default(1)
+  order       String[] @default([])
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
 // Documents/images uploaded to a specific user's profile (contracts, IDs, photos, etc.)
 model UserDocument {
   id           String   @id @default(cuid())

@@ -14,6 +14,7 @@ import { ResourcesModule } from './resources/resources.module';
 import { UserDocumentsModule } from './user-documents/user-documents.module';
 import { VacationsModule } from './vacations/vacations.module';
 import { OrgChartModule } from './org-chart/org-chart.module';
+import { NavOrderModule } from './nav-order/nav-order.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { OrgChartModule } from './org-chart/org-chart.module';
     UserDocumentsModule,
     VacationsModule,
     OrgChartModule,
+    NavOrderModule,
   ],
 })
 export class AppModule {}
