@@ -27,7 +27,9 @@ export class EmployeesService {
     const employees = await this.prisma.employee.findMany({
       where: { restaurantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { user: { select: { id: true, displayName: true, restDays: true, hireDate: true } } },
+      include: {
+        user: { select: { id: true, displayName: true, lastName: true, restDays: true, hireDate: true } },
+      },
     });
     return employees.map((employee) => EmployeeResponseDto.from(employee));
   }

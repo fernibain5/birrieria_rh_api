@@ -1,12 +1,19 @@
 import { Employee } from '@prisma/client';
 
 type EmployeeWithUser = Employee & {
-  user?: { id: string; displayName: string | null; restDays: string[]; hireDate: Date | null } | null;
+  user?: {
+    id: string;
+    displayName: string | null;
+    lastName: string | null;
+    restDays: string[];
+    hireDate: Date | null;
+  } | null;
 };
 
 export class LinkedUserDto {
   id: string;
   displayName: string | null;
+  lastName: string | null;
   restDays: string[];
   hireDate: Date | null;
 }
@@ -48,6 +55,7 @@ export class EmployeeResponseDto {
       ? {
           id: employee.user.id,
           displayName: employee.user.displayName,
+          lastName: employee.user.lastName,
           restDays: employee.user.restDays,
           hireDate: employee.user.hireDate,
         }

@@ -129,6 +129,7 @@ model User {
   email        String      @unique
   password     String?     // bcrypt hash; nullable so existing rows survive migration
   displayName  String?
+  lastName     String?     // apellidos (dos apellidos, estilo mexicano)
   phoneNumber  String?
   hireDate     DateTime?   @db.Date // fecha de ingreso; base for años de antigüedad
   birthDate    DateTime?   @db.Date // fecha de cumpleaños

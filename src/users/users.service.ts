@@ -19,6 +19,7 @@ export class UsersService {
       role: user.roleValue,
       branch: user.restaurant?.name ?? undefined,
       displayName: user.displayName ?? undefined,
+      lastName: user.lastName ?? undefined,
       phoneNumber: user.phoneNumber ?? undefined,
       hireDate: user.hireDate ? user.hireDate.toISOString().slice(0, 10) : undefined,
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : undefined,
@@ -103,6 +104,7 @@ export class UsersService {
         email: dto.email,
         password: hash,
         displayName: dto.displayName,
+        lastName: dto.lastName,
         roleValue: dto.role,
         restaurantId,
         phoneNumber: dto.phoneNumber ?? null,
@@ -134,6 +136,7 @@ export class UsersService {
     const data: any = {};
     if (dto.role !== undefined) data.roleValue = dto.role;
     if (dto.displayName !== undefined) data.displayName = dto.displayName;
+    if (dto.lastName !== undefined) data.lastName = dto.lastName;
     if (dto.phoneNumber !== undefined) data.phoneNumber = dto.phoneNumber;
     if (dto.hireDate !== undefined) data.hireDate = this.toDateOnly(dto.hireDate);
     if (dto.birthDate !== undefined) data.birthDate = this.toDateOnly(dto.birthDate);
