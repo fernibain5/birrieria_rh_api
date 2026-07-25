@@ -13,6 +13,7 @@ import { MinutasModule } from './minutas/minutas.module';
 import { ResourcesModule } from './resources/resources.module';
 import { UserDocumentsModule } from './user-documents/user-documents.module';
 import { VacationsModule } from './vacations/vacations.module';
+import { OrgChartModule } from './org-chart/org-chart.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { VacationsModule } from './vacations/vacations.module';
     ResourcesModule,
     UserDocumentsModule,
     VacationsModule,
+    OrgChartModule,
   ],
 })
 export class AppModule {}

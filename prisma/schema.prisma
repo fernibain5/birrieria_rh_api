@@ -147,6 +147,7 @@ model User {
   createdMinutas    Minuta[]          @relation("MinutaCreatedBy")
   minutaAttendances MinutaAttendee[]
   createdResources  Resource[]
+  createdOrgCharts  OrgChart[]
   documents         UserDocument[]    @relation("UserDocumentOwner")
   uploadedDocuments UserDocument[]    @relation("UserDocumentUploader")
   vacationRequests  VacationRequest[]
@@ -245,6 +246,20 @@ model Resource {
   size         Int
   order        Int      @default(0)
   adminOnly    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  createdById  String?
+  createdBy    User?    @relation(fields: [createdById], references: [id])
+}
+
+// Company org chart image — singleton, at most one row at a time.
+model OrgChart {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  fileUrl      String
+  storagePath  String   @unique
+  contentType  String
+  size         Int
   createdAt    DateTime @default(now())
   createdById  String?
   createdBy    User?    @relation(fields: [createdById], references: [id])
