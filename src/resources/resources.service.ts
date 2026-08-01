@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { RequestUser } from '../auth/request-user';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -27,11 +28,13 @@ export class ResourcesService {
     };
   }
 
-  async findAll() {
+  async findAll(requestUser: RequestUser) {
     const resources = await this.prisma.resource.findMany({
       orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
     });
-    return resources.map((r) => this.toResource(r));
+    const mapped = resources.map((r) => this.toResource(r));
+    const isManager = requestUser.role === 'admin' || requestUser.role === 'gerente';
+    return isManager ? mapped : mapped.filter((r) => !r.adminOnly);
   }
 
   async create(

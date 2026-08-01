@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
+import { RequestUser } from '../auth/request-user';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -9,6 +10,19 @@ export class UserDocumentsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
+
+  private async assertBranchAccess(userId: string, requestUser: RequestUser) {
+    if (requestUser.role === 'admin') return;
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true },
+    });
+    if (!targetUser || targetUser.restaurantId !== requestUser.restaurantId) {
+      throw new ForbiddenException(
+        'No tienes permiso para acceder a los documentos de este usuario',
+      );
+    }
+  }
 
   private toDocument(d: any) {
     return {
@@ -25,7 +39,8 @@ export class UserDocumentsService {
     };
   }
 
-  async findAllForUser(userId: string) {
+  async findAllForUser(userId: string, requestUser: RequestUser) {
+    await this.assertBranchAccess(userId, requestUser);
     const documents = await this.prisma.userDocument.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
@@ -38,7 +53,9 @@ export class UserDocumentsService {
     userId: string,
     fileName: string,
     uploadedById: string,
+    requestUser: RequestUser,
   ) {
+    await this.assertBranchAccess(userId, requestUser);
     const apiUrl = this.config.get<string>('API_URL') ?? 'http://localhost:3001';
     const fileUrl = `${apiUrl}/uploads/${file.filename}`;
 
@@ -57,9 +74,13 @@ export class UserDocumentsService {
     return this.toDocument(document);
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId: string, requestUser: RequestUser) {
+    await this.assertBranchAccess(userId, requestUser);
+
     const document = await this.prisma.userDocument.findUnique({ where: { id } });
-    if (!document) throw new NotFoundException('Document not found');
+    if (!document || document.userId !== userId) {
+      throw new NotFoundException('Document not found');
+    }
 
     if (document.storagePath && fs.existsSync(document.storagePath)) {
       fs.unlinkSync(document.storagePath);

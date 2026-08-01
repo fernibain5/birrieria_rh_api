@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RequestUser } from '../auth/request-user';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { CreateMinutaDto } from './dto/create-minuta.dto';
 import { MinutasService } from './minutas.service';
 
@@ -29,6 +31,8 @@ export class MinutasController {
     return this.minutasService.findAll(role, branch, req.user);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'gerente')
   @Post()
   create(@Body() dto: CreateMinutaDto, @Request() req: { user: RequestUser }) {
     return this.minutasService.create(dto, req.user);
