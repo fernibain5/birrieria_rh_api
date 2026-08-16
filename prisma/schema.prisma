@@ -142,6 +142,7 @@ model User {
   employee     Employee?   @relation(fields: [employeeId], references: [id])
   allFiles     String[]
   createdAt    DateTime    @default(now())
+  deletedAt    DateTime?   // soft delete; excluded from findAll/login when set
 
   createdEvents     Event[]           @relation("EventCreatedBy")
   createdMinutas    Minuta[]          @relation("MinutaCreatedBy")

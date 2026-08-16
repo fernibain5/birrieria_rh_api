@@ -21,10 +21,11 @@ export class AuthService {
         password: true,
         roleValue: true,
         restaurantId: true,
+        deletedAt: true,
       },
     });
 
-    if (!user || !user.password) {
+    if (!user || !user.password || user.deletedAt) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

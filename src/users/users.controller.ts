@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Patch,
@@ -57,5 +59,13 @@ export class UsersController {
     @Request() req: { user: RequestUser },
   ) {
     return this.usersService.update(id, dto, req.user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'gerente')
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id') id: string, @Request() req: { user: RequestUser }) {
+    return this.usersService.remove(id, req.user);
   }
 }

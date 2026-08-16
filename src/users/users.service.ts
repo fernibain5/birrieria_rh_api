@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { RequestUser } from '../auth/request-user';
@@ -50,8 +55,8 @@ export class UsersService {
   async findAll(requestUser?: RequestUser) {
     const where =
       requestUser && requestUser.role !== 'admin'
-        ? { restaurantId: requestUser.restaurantId }
-        : {};
+        ? { restaurantId: requestUser.restaurantId, deletedAt: null }
+        : { deletedAt: null };
     const users = await this.prisma.user.findMany({
       where,
       include: { restaurant: true, employee: true },
@@ -65,7 +70,8 @@ export class UsersService {
       where: { id },
       include: { restaurant: true, employee: true },
     });
-    return user ? this.toProfile(user) : null;
+    if (!user || user.deletedAt) return null;
+    return this.toProfile(user);
   }
 
   // Like findById, but returns null (→ 404 at the controller) if a non-admin
@@ -75,7 +81,7 @@ export class UsersService {
       where: { id },
       include: { restaurant: true, employee: true },
     });
-    if (!user) return null;
+    if (!user || user.deletedAt) return null;
     if (requestUser.role !== 'admin' && user.restaurantId !== requestUser.restaurantId) {
       return null;
     }
@@ -165,5 +171,31 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async remove(id: string, requestUser: RequestUser) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, restaurantId: true, roleValue: true, deletedAt: true },
+    });
+    if (!existing || existing.deletedAt) {
+      throw new NotFoundException('User not found');
+    }
+    if (id === requestUser.id) {
+      throw new ForbiddenException('No puedes eliminar tu propia cuenta');
+    }
+    if (requestUser.role !== 'admin') {
+      if (existing.restaurantId !== requestUser.restaurantId) {
+        throw new ForbiddenException('No puedes eliminar usuarios de otra sucursal');
+      }
+      if (ELEVATED_ROLES.includes(existing.roleValue)) {
+        throw new ForbiddenException('No puedes eliminar este usuario');
+      }
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }
