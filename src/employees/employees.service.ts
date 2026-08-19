@@ -25,7 +25,11 @@ export class EmployeesService {
 
   async findAll(restaurantId: number): Promise<EmployeeResponseDto[]> {
     const employees = await this.prisma.employee.findMany({
-      where: { restaurantId, isActive: true },
+      where: {
+        restaurantId,
+        isActive: true,
+        OR: [{ user: null }, { user: { deletedAt: null } }],
+      },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         user: { select: { id: true, displayName: true, lastName: true, restDays: true, hireDate: true } },
