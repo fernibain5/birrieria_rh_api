@@ -154,7 +154,13 @@ export class VacationsService {
   ): Promise<VacationRequestDto[]> {
     const restaurantId = requestUser.role === 'admin' ? query.restaurantId : requestUser.restaurantId;
     const records = await this.prisma.vacationRequest.findMany({
-      where: restaurantId ? { user: { restaurantId } } : {},
+      // Match on the user's own branch OR their linked Hikvision employee's
+      // branch — User.restaurantId and Employee.restaurantId are separate
+      // columns that aren't guaranteed to agree, and Incidencias scopes its
+      // employee roster by Employee.restaurantId, not User.restaurantId.
+      where: restaurantId
+        ? { OR: [{ user: { restaurantId } }, { user: { employee: { restaurantId } } }] }
+        : {},
       orderBy: { startDate: 'desc' },
     });
     return records.map(VacationRequestDto.from);
