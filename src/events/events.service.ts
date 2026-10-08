@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { RequestUser } from '../auth/request-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -57,8 +57,24 @@ export class EventsService {
     return { exists: count > 0 };
   }
 
-  async create(dto: CreateEventDto): Promise<{ id: string }> {
-    const targetRestaurantId = await this.branchToId(dto.targetBranch);
+  // Non-admins may only manage events targeted at their own restaurant.
+  private async assertCanModify(id: string, requestUser: RequestUser): Promise<void> {
+    if (requestUser.role === 'admin') return;
+    const event = await this.prisma.event.findUnique({ where: { id } });
+    if (!event) throw new NotFoundException('Evento no encontrado');
+    if (requestUser.restaurantId == null || event.targetRestaurantId !== requestUser.restaurantId) {
+      throw new ForbiddenException('No tienes permiso para modificar este evento');
+    }
+  }
+
+  async create(dto: CreateEventDto, requestUser: RequestUser): Promise<{ id: string }> {
+    const isAdmin = requestUser.role === 'admin';
+    if (!isAdmin && requestUser.restaurantId == null) {
+      throw new ForbiddenException('No tienes una sucursal asignada');
+    }
+    const targetRestaurantId = isAdmin
+      ? await this.branchToId(dto.targetBranch)
+      : requestUser.restaurantId;
     const event = await this.prisma.event.create({
       data: {
         title: dto.title,
@@ -67,7 +83,7 @@ export class EventsService {
         color: dto.color ?? null,
         type: dto.type ?? 'custom',
         year: dto.year ?? new Date(dto.date).getFullYear(),
-        createdById: dto.createdBy ?? null,
+        createdById: isAdmin ? (dto.createdBy ?? null) : requestUser.id,
         targetRole: dto.targetRole ?? null,
         targetRestaurantId,
         minutaId: dto.minutaId ?? null,
@@ -76,7 +92,8 @@ export class EventsService {
     return { id: event.id };
   }
 
-  async update(id: string, dto: UpdateEventDto): Promise<void> {
+  async update(id: string, dto: UpdateEventDto, requestUser: RequestUser): Promise<void> {
+    await this.assertCanModify(id, requestUser);
     const data: any = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
@@ -89,7 +106,8 @@ export class EventsService {
     await this.prisma.event.update({ where: { id }, data });
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, requestUser: RequestUser): Promise<void> {
+    await this.assertCanModify(id, requestUser);
     await this.prisma.event.delete({ where: { id } });
   }
 }
